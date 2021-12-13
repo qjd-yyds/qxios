@@ -4,9 +4,12 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "serve": "nodemon service/app.js"
   },
   "dependencies": {
+    "axios": "^0.24.0",
+    "nodemon": "^2.0.15",
     "rollup": "^2.61.1",
     "rollup-plugin-json": "^4.0.0"
   }
