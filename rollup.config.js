@@ -1,12 +1,11 @@
 import json from 'rollup-plugin-json';
-import example from './plugins/example.js';
 // rollup.config.js
 export default {
-  // input: 'src/main.js',
-  input: 'virtual-module',
+  input: 'lib/axios.js',
   output: {
-    format: 'cjs',
-    file: 'bundle.js'
+    format: 'umd',
+    file: 'dist/bundle.js',
+    name: 'axios'
   },
-  plugins: [json(), example()]
+  plugins: [json()]
 };

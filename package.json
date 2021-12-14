@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "build": "rollup -c",
+    "dev": "rollup -c -w",
     "serve": "nodemon service/app.js"
   },
   "dependencies": {
