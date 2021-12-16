@@ -1,5 +1,7 @@
-import mergeConfig from "./mergeConfig";
+import mergeConfig from './mergeConfig';
 class Axios {
+  defaults: any;
+  interceptors: any;
   constructor(instanceConfig) {
     this.defaults = instanceConfig;
     this.interceptors = {}; // 拦截器
@@ -23,7 +25,6 @@ class Axios {
     } else {
       config.method = 'get';
     }
-    console.log(config);
     let promise;
     return promise;
   }

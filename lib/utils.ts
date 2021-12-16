@@ -52,7 +52,7 @@ function forEach(obj, fn) {
  * @param {Object} obj1 需要合并的对象参数
  * @returns {Object} 合并完的对象
  */
-function merge() {
+function merge(...arg: any[]) {
   const result = {};
   function assignValue(val, key) {
     if (isPlainObject(result[key]) && isPlainObject(val)) {
@@ -66,8 +66,8 @@ function merge() {
     }
   }
 
-  for (var i = 0, l = arguments.length; i < l; i++) {
-    forEach(arguments[i], assignValue);
+  for (var i = 0, l = arg.length; i < l; i++) {
+    forEach(arg[i], assignValue);
   }
   return result;
 }

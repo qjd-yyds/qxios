@@ -1,7 +1,7 @@
 export default function mergeConfig(config1, config2 = {}) {
   const config = {};
-  function getMergedValue() {}
-  function mergeDeepProperties() {}
+  // function getMergedValue() {}
+  // function mergeDeepProperties() {}
   function valueFromConfig2() {}
   function defaultToConfig2() {}
   function mergeDirectKeys() {}
@@ -34,5 +34,6 @@ export default function mergeConfig(config1, config2 = {}) {
     responseEncoding: defaultToConfig2,
     validateStatus: mergeDirectKeys
   };
+  console.log(mergeMap, config);
   return config2;
 }
