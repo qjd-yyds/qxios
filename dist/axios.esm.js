@@ -8,78 +8,10 @@ function bind(fn, thisArg) {
     };
 }
 
-function mergeConfig(config1, config2 = {}) {
-    const config = {};
-    // function getMergedValue() {}
-    // function mergeDeepProperties() {}
-    function valueFromConfig2() { }
-    function defaultToConfig2() { }
-    function mergeDirectKeys() { }
-    const mergeMap = {
-        url: valueFromConfig2,
-        method: valueFromConfig2,
-        data: valueFromConfig2,
-        baseURL: defaultToConfig2,
-        transformRequest: defaultToConfig2,
-        transformResponse: defaultToConfig2,
-        paramsSerializer: defaultToConfig2,
-        timeout: defaultToConfig2,
-        timeoutMessage: defaultToConfig2,
-        withCredentials: defaultToConfig2,
-        adapter: defaultToConfig2,
-        responseType: defaultToConfig2,
-        xsrfCookieName: defaultToConfig2,
-        xsrfHeaderName: defaultToConfig2,
-        onUploadProgress: defaultToConfig2,
-        onDownloadProgress: defaultToConfig2,
-        decompress: defaultToConfig2,
-        maxContentLength: defaultToConfig2,
-        maxBodyLength: defaultToConfig2,
-        transport: defaultToConfig2,
-        httpAgent: defaultToConfig2,
-        httpsAgent: defaultToConfig2,
-        cancelToken: defaultToConfig2,
-        socketPath: defaultToConfig2,
-        responseEncoding: defaultToConfig2,
-        validateStatus: mergeDirectKeys
-    };
-    console.log(mergeMap, config);
-    return config2;
-}
-
-class Axios {
-    constructor(instanceConfig) {
-        this.defaults = instanceConfig;
-        this.interceptors = {}; // 拦截器
-    }
-    request(config) {
-        // 通过传入的配置判断
-        if (typeof config === 'string') {
-            // 如果传入的是字符串，第二个参数是配置
-            config = arguments[1] || {};
-            config.url = arguments[0];
-        }
-        else {
-            config = config || {};
-        }
-        // 合并配置
-        config = mergeConfig(this.defaults, config);
-        // // 设置默认方法
-        if (config.method) {
-            config.method = config.method.toLowerCase();
-        }
-        else if (this.defaults.method) {
-            config.method = this.defaults.method.toLowerCase();
-        }
-        else {
-            config.method = 'get';
-        }
-        let promise;
-        return promise;
-    }
-}
-
 const toString = Object.prototype.toString;
+function isUndefined(val) {
+    return typeof val === 'undefined';
+}
 /**
  * 确定一个值是不是对象
  *
@@ -153,7 +85,78 @@ function merge(...arg) {
     }
     return result;
 }
-var utils = { forEach, merge, isPlainObject, isArray };
+var utils = { forEach, merge, isPlainObject, isArray, isUndefined };
+
+function mergeConfig(config1, config2 = {}) {
+    const config = {};
+    // 获取合并完的配置
+    function getMergedValue(target, source) {
+        if (utils.isPlainObject(target) && utils.isPlainObject(source)) {
+            // 两个都是对象
+            return utils.merge(target, source);
+        }
+        else if (utils.isPlainObject(source)) {
+            // 来源是对象，目标不是对象
+            return utils.merge({}, source);
+        }
+        else if (utils.isArray(source)) {
+            // 来源是数组，浅拷贝
+            return source.slice();
+        }
+        return source;
+    }
+    function mergeDeepProperties() { }
+    function valueFromConfig2() { }
+    // 合并用户传入的config
+    function defaultToConfig2(prop) {
+        // 如果第二个参数有值，直接合并
+        if (!utils.isUndefined(config2[prop])) {
+            return getMergedValue(undefined, config2[prop]);
+        }
+        else if (!utils.isUndefined(config1[prop])) {
+            // 第二个没有值 用默认配置
+            return getMergedValue(undefined, config1[prop]);
+        }
+    }
+    function mergeDirectKeys() { }
+    const mergeMap = {
+        url: valueFromConfig2,
+        method: valueFromConfig2,
+        data: valueFromConfig2,
+        baseURL: defaultToConfig2,
+        transformRequest: defaultToConfig2,
+        transformResponse: defaultToConfig2,
+        paramsSerializer: defaultToConfig2,
+        timeout: defaultToConfig2,
+        timeoutMessage: defaultToConfig2,
+        withCredentials: defaultToConfig2,
+        adapter: defaultToConfig2,
+        responseType: defaultToConfig2,
+        xsrfCookieName: defaultToConfig2,
+        xsrfHeaderName: defaultToConfig2,
+        onUploadProgress: defaultToConfig2,
+        onDownloadProgress: defaultToConfig2,
+        decompress: defaultToConfig2,
+        maxContentLength: defaultToConfig2,
+        maxBodyLength: defaultToConfig2,
+        transport: defaultToConfig2,
+        httpAgent: defaultToConfig2,
+        httpsAgent: defaultToConfig2,
+        cancelToken: defaultToConfig2,
+        socketPath: defaultToConfig2,
+        responseEncoding: defaultToConfig2,
+        validateStatus: mergeDirectKeys
+    };
+    // 创建需要合并的配置数组
+    const configKeys = Object.keys(config1).concat(Object.keys(config2));
+    // 每一个需要配置的key
+    utils.forEach(configKeys, function computeConfigValue(prop) {
+        const merge = mergeMap[prop] || mergeDeepProperties;
+        const configValue = merge(prop);
+        (utils.isUndefined(configValue) && merge !== mergeDirectKeys) || (config[prop] = configValue);
+    });
+    return config;
+}
 
 // 定义默认content-type 决定文件接收方将以什么形式、什么编码读取这个文件
 const DEFAULT_CONTENT_TYPE = {
@@ -202,12 +205,85 @@ const defaults = {
         }
     }
 };
+// 向headers里放入所有方法
 utils.forEach(['delete', 'get', 'head'], function forEachMethodNoData(method) {
     defaults.headers[method] = {};
 });
 utils.forEach(['post', 'put', 'patch'], function forEachMethodWithData(method) {
     defaults.headers[method] = utils.merge(DEFAULT_CONTENT_TYPE);
 });
+
+/**
+ * Transform the data for a request or a response
+ *
+ * @param {Object|String} data The data to be transformed
+ * @param {Array} headers The headers for the request or response
+ * @param {Array|Function} fns A single function or Array of functions
+ * @returns {*} The resulting transformed data
+ */
+function transformData(data, headers, fns) {
+    const context = defaults;
+    utils.forEach(fns, function transform(fn) {
+        data = fn.call(context, data, headers);
+    });
+    return data;
+}
+
+function dispatchRequest(config) {
+    // throwIfCancellationRequested(config);
+    // 确保headers存在
+    config.headers = config.headers || {};
+    // Transform request data
+    config.data = transformData.call(config, config.data, config.headers, config.transformRequest);
+    // Flatten headers
+    config.headers = utils.merge(config.headers.common || {}, config.headers[config.method] || {}, config.headers);
+    // 删除config里headers里的方法
+    utils.forEach(["delete", "get", "head", "post", "put", "patch", "common"], function cleanHeaderConfig(method) {
+        delete config.headers[method];
+    });
+    const adapter = config.adapter || defaults.adapter;
+    console.log("adapter", adapter);
+}
+
+class Axios {
+    constructor(instanceConfig) {
+        this.defaults = instanceConfig;
+        this.interceptors = {}; // 拦截器
+    }
+    request(config) {
+        // 通过传入的配置判断
+        if (typeof config === 'string') {
+            // 如果传入的是字符串，第二个参数是配置
+            config = arguments[1] || {};
+            config.url = arguments[0];
+        }
+        else {
+            config = config || {};
+        }
+        // 合并配置
+        config = mergeConfig(this.defaults, config);
+        // // 设置默认方法
+        if (config.method) {
+            config.method = config.method.toLowerCase();
+        }
+        else if (this.defaults.method) {
+            config.method = this.defaults.method.toLowerCase();
+        }
+        else {
+            config.method = 'get';
+        }
+        // 处理拦截器
+        let promise;
+        let newConfig = config;
+        try {
+            promise = dispatchRequest(newConfig);
+        }
+        catch (error) {
+            return Promise.reject(error);
+        }
+        return promise;
+    }
+}
 
 /**
  * 创建axios实例

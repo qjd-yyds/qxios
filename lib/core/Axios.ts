@@ -1,4 +1,5 @@
 import mergeConfig from './mergeConfig';
+import dispatchRequest from './dispatchRequest';
 class Axios {
   defaults: any;
   interceptors: any;
@@ -25,7 +26,14 @@ class Axios {
     } else {
       config.method = 'get';
     }
+    // 处理拦截器
     let promise;
+    let newConfig = config;
+    try {
+      promise = dispatchRequest(newConfig);
+    } catch (error) {
+      return Promise.reject(error);
+    }
     return promise;
   }
 }

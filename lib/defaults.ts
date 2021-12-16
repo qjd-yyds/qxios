@@ -52,6 +52,7 @@ const defaults = {
     }
   }
 };
+// 向headers里放入所有方法
 utils.forEach(['delete', 'get', 'head'], function forEachMethodNoData(method) {
   defaults.headers[method] = {};
 });

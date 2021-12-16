@@ -1,4 +1,7 @@
 const toString = Object.prototype.toString;
+function isUndefined(val) {
+  return typeof val === 'undefined';
+}
 /**
  * 确定一个值是不是对象
  *
@@ -71,4 +74,4 @@ function merge(...arg: any[]) {
   }
   return result;
 }
-export default { forEach, merge, isPlainObject, isArray };
+export default { forEach, merge, isPlainObject, isArray, isUndefined };
