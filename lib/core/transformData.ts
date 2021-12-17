@@ -10,8 +10,8 @@ import utils from "lib/utils";
  * @param {Array|Function} fns A single function or Array of functions
  * @returns {*} The resulting transformed data
  */
-export default function transformData(data, headers, fns) {
-  const context = defaults;
+export default function transformData(this: any, data, headers, fns) {
+  const context = this || defaults;
   utils.forEach(fns, function transform(fn) {
     data = fn.call(context, data, headers);
   });

@@ -12,7 +12,7 @@
     // "declarationMap": false,
     "allowJs": false,
     "strict": true,
-    "noUnusedLocals": true,
+    "noUnusedLocals": false, 
     "experimentalDecorators": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,

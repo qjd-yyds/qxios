@@ -1,4 +1,4 @@
-import utils from '../utils';
+import utils from "../utils";
 export default function mergeConfig(config1, config2 = {}) {
   const config = {};
   // 获取合并完的配置
@@ -16,7 +16,11 @@ export default function mergeConfig(config1, config2 = {}) {
     return source;
   }
   function mergeDeepProperties() {}
-  function valueFromConfig2() {}
+  function valueFromConfig2(prop) {
+    if (!utils.isUndefined(config2[prop])) {
+      return getMergedValue(undefined, config2[prop]);
+    }
+  }
   // 合并用户传入的config
   function defaultToConfig2(prop) {
     // 如果第二个参数有值，直接合并
@@ -27,7 +31,13 @@ export default function mergeConfig(config1, config2 = {}) {
       return getMergedValue(undefined, config1[prop]);
     }
   }
-  function mergeDirectKeys() {}
+  function mergeDirectKeys(prop) {
+    if (prop in config2) {
+      return getMergedValue(config1[prop], config2[prop]);
+    } else if (prop in config1) {
+      return getMergedValue(undefined, config1[prop]);
+    }
+  }
 
   const mergeMap = {
     url: valueFromConfig2,
@@ -55,7 +65,7 @@ export default function mergeConfig(config1, config2 = {}) {
     cancelToken: defaultToConfig2,
     socketPath: defaultToConfig2,
     responseEncoding: defaultToConfig2,
-    validateStatus: mergeDirectKeys
+    validateStatus: mergeDirectKeys,
   };
   // 创建需要合并的配置数组
   const configKeys = Object.keys(config1).concat(Object.keys(config2));

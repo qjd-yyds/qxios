@@ -106,7 +106,11 @@ function mergeConfig(config1, config2 = {}) {
         return source;
     }
     function mergeDeepProperties() { }
-    function valueFromConfig2() { }
+    function valueFromConfig2(prop) {
+        if (!utils.isUndefined(config2[prop])) {
+            return getMergedValue(undefined, config2[prop]);
+        }
+    }
     // 合并用户传入的config
     function defaultToConfig2(prop) {
         // 如果第二个参数有值，直接合并
@@ -118,7 +122,14 @@ function mergeConfig(config1, config2 = {}) {
             return getMergedValue(undefined, config1[prop]);
         }
     }
-    function mergeDirectKeys() { }
+    function mergeDirectKeys(prop) {
+        if (prop in config2) {
+            return getMergedValue(config1[prop], config2[prop]);
+        }
+        else if (prop in config1) {
+            return getMergedValue(undefined, config1[prop]);
+        }
+    }
     const mergeMap = {
         url: valueFromConfig2,
         method: valueFromConfig2,
@@ -145,7 +156,7 @@ function mergeConfig(config1, config2 = {}) {
         cancelToken: defaultToConfig2,
         socketPath: defaultToConfig2,
         responseEncoding: defaultToConfig2,
-        validateStatus: mergeDirectKeys
+        validateStatus: mergeDirectKeys,
     };
     // 创建需要合并的配置数组
     const configKeys = Object.keys(config1).concat(Object.keys(config2));
@@ -158,15 +169,71 @@ function mergeConfig(config1, config2 = {}) {
     return config;
 }
 
+function buildURL(url, params, paramsSerializer) {
+    if (!params) {
+        return url;
+    }
+    return url;
+}
+
+function isAbsoluteURL(url) {
+    return /^([a-z][a-z\d\+\-\.]*:)?\/\//i.test(url);
+}
+
+/**
+ * @description: 组合两者地址，如果第二个参数为空 ，返回第一个
+ * @param {string} baseURL
+ * @param {string} relativeURL
+ * @return {string} 组合后的地址
+ */
+function combineURLs(baseURL, relativeURL) {
+    return relativeURL
+        ? baseURL.replace(/\/+$/, "") + "/" + relativeURL.replace(/^\/+/, "")
+        : baseURL;
+}
+
+/**
+ * @description: 返回最终需要的地址
+ * @param {string} baseURL 配置中的baseurl
+ * @param {string} requestedURL 用户传入的url
+ * @return {string} requestedURL 最终处理后的地址
+ */
+function buildFullPath(baseURL, requestedURL) {
+    // 如果是绝对路径，直接替换之前的baseUrl
+    if (baseURL && !isAbsoluteURL(requestedURL)) {
+        //  不是绝对路径，组合两个地址
+        return combineURLs(baseURL, requestedURL);
+    }
+    return requestedURL;
+}
+
+function xhrAdapter(config) {
+    return new Promise(function dispatchXhrRequest(resolve, reject) {
+        const request = new XMLHttpRequest();
+        var fullPath = buildFullPath(config.baseURL, config.url);
+        console.log(fullPath, "==>最终的请求地址");
+        request.open(config.method.toUpperCase(), buildURL(fullPath, config.params, config.paramsSerializer), true);
+        request.timeout = config.timeout; // 设置过期时间
+        let requestData = config.requestData;
+        if (!requestData) {
+            requestData = null;
+        }
+        request.send(requestData);
+    });
+}
+
 // 定义默认content-type 决定文件接收方将以什么形式、什么编码读取这个文件
 const DEFAULT_CONTENT_TYPE = {
-    'Content-Type': 'application/x-www-form-urlencoded'
+    "Content-Type": "application/x-www-form-urlencoded",
 };
 // 创建适配器
 function getDefaultAdapter() {
     let adapter;
-    if (typeof XMLHttpRequest !== 'undefined') ;
-    else if (typeof process !== 'undefined' && Object.prototype.toString.call(process) === '[object process]') ;
+    if (typeof XMLHttpRequest !== "undefined") {
+        adapter = xhrAdapter;
+    }
+    else if (typeof process !== "undefined" &&
+        Object.prototype.toString.call(process) === "[object process]") ;
     return adapter;
 }
 // 默认配置
@@ -174,26 +241,26 @@ const defaults = {
     transitional: {
         silentJSONParsing: true,
         forcedJSONParsing: true,
-        clarifyTimeoutError: false
+        clarifyTimeoutError: false,
     },
     adapter: getDefaultAdapter(),
     transformRequest: [
         function transformRequest(data, headers) {
             return data;
-        }
+        },
     ],
     transformResponse: [
         function transformResponse(data) {
             return data;
-        }
+        },
     ],
     /**
      * 请求超时时间
      * 如果为0表示不设置超时时间
      */
     timeout: 0,
-    xsrfCookieName: 'XSRF-TOKEN',
-    xsrfHeaderName: 'X-XSRF-TOKEN',
+    xsrfCookieName: "XSRF-TOKEN",
+    xsrfHeaderName: "X-XSRF-TOKEN",
     maxContentLength: -1,
     maxBodyLength: -1,
     validateStatus: function validateStatus(status) {
@@ -201,15 +268,15 @@ const defaults = {
     },
     headers: {
         common: {
-            Accept: 'application/json, text/plain, */*'
-        }
-    }
+            Accept: "application/json, text/plain, */*",
+        },
+    },
 };
 // 向headers里放入所有方法
-utils.forEach(['delete', 'get', 'head'], function forEachMethodNoData(method) {
+utils.forEach(["delete", "get", "head"], function forEachMethodNoData(method) {
     defaults.headers[method] = {};
 });
-utils.forEach(['post', 'put', 'patch'], function forEachMethodWithData(method) {
+utils.forEach(["post", "put", "patch"], function forEachMethodWithData(method) {
     defaults.headers[method] = utils.merge(DEFAULT_CONTENT_TYPE);
 });
 
@@ -222,7 +289,7 @@ utils.forEach(['post', 'put', 'patch'], function forEachMethodWithData(method) {
  * @returns {*} The resulting transformed data
  */
 function transformData(data, headers, fns) {
-    const context = defaults;
+    const context = this || defaults;
     utils.forEach(fns, function transform(fn) {
         data = fn.call(context, data, headers);
     });
@@ -242,7 +309,15 @@ function dispatchRequest(config) {
         delete config.headers[method];
     });
     const adapter = config.adapter || defaults.adapter;
-    console.log("adapter", adapter);
+    return adapter(config).then(function onAdapterResolution(response) {
+        // throwIfCancellationRequested(config);
+        // 转换返回值
+        response.data = transformData.call(config, response.data, response.headers, config.transformResponse);
+        return response;
+    }, function onAdapterRejection(reason) {
+        return Promise.reject(reason);
+    });
+    // console.log("adapter", adapter);
 }
 
 class Axios {

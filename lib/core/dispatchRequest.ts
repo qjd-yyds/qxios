@@ -1,6 +1,19 @@
 import utils from "lib/utils";
 import defaults from "lib/defaults";
 import transformData from "./transformData";
+/**
+ * Throws a `Cancel` if cancellation has been requested.
+ */
+function throwIfCancellationRequested(config) {
+  if (config.cancelToken) {
+    config.cancelToken.throwIfRequested();
+  }
+
+  if (config.signal && config.signal.aborted) {
+    console.log("取消成功");
+    // throw new Cancel("canceled");
+  }
+}
 export default function dispatchRequest(config) {
   // throwIfCancellationRequested(config);
   // 确保headers存在
@@ -23,5 +36,21 @@ export default function dispatchRequest(config) {
     },
   );
   const adapter = config.adapter || defaults.adapter;
-  console.log("adapter", adapter);
+  return adapter(config).then(
+    function onAdapterResolution(response) {
+      // throwIfCancellationRequested(config);
+      // 转换返回值
+      response.data = transformData.call(
+        config,
+        response.data,
+        response.headers,
+        config.transformResponse, // 执行transformResponse 转换方法
+      );
+      return response;
+    },
+    function onAdapterRejection(reason) {
+      return Promise.reject(reason);
+    },
+  );
+  // console.log("adapter", adapter);
 }
