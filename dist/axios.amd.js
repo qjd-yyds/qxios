@@ -12,7 +12,7 @@ define((function () { 'use strict';
 
   const toString = Object.prototype.toString;
   function isUndefined(val) {
-      return typeof val === 'undefined';
+      return typeof val === "undefined";
   }
   /**
    * 确定一个值是不是对象
@@ -21,7 +21,7 @@ define((function () { 'use strict';
    * @return {boolean} 是否为对象
    */
   function isPlainObject(val) {
-      if (toString.call(val) !== '[object Object]') {
+      if (toString.call(val) !== "[object Object]") {
           return false;
       }
       const prototype = Object.getPrototypeOf(val);
@@ -34,7 +34,7 @@ define((function () { 'use strict';
    * @returns {boolean} 返回是否为数组
    */
   function isArray(val) {
-      return toString.call(val) === '[object Array]';
+      return toString.call(val) === "[object Array]";
   }
   /**
    * @param {Object|Array} obj 需要迭代的数组或者对象
@@ -42,11 +42,11 @@ define((function () { 'use strict';
    */
   function forEach(obj, fn) {
       // 如果obj没有传入值
-      if (obj === null || typeof obj === 'undefined') {
+      if (obj === null || typeof obj === "undefined") {
           return;
       }
       // 如果obj不是一个对象，转成数组
-      if (typeof obj !== 'object') {
+      if (typeof obj !== "object") {
           obj = [obj];
       }
       if (isArray(obj)) {
@@ -87,7 +87,16 @@ define((function () { 'use strict';
       }
       return result;
   }
-  var utils = { forEach, merge, isPlainObject, isArray, isUndefined };
+  /**
+   * Trim excess whitespace off the beginning and end of a string
+   *
+   * @param {String} str The String to trim
+   * @returns {String} The String freed of excess whitespace
+   */
+  function trim(str) {
+      return str.trim ? str.trim() : str.replace(/^\s+|\s+$/g, "");
+  }
+  var utils = { forEach, merge, isPlainObject, isArray, isUndefined, trim };
 
   function mergeConfig(config1, config2 = {}) {
       const config = {};
@@ -209,14 +218,177 @@ define((function () { 'use strict';
       return requestedURL;
   }
 
+  // Headers whose duplicates are ignored by node
+  // c.f. https://nodejs.org/api/http.html#http_message_headers
+  const ignoreDuplicateOf = [
+      'age', 'authorization', 'content-length', 'content-type', 'etag',
+      'expires', 'from', 'host', 'if-modified-since', 'if-unmodified-since',
+      'last-modified', 'location', 'max-forwards', 'proxy-authorization',
+      'referer', 'retry-after', 'user-agent'
+  ];
+  /**
+   * Parse headers into an object
+   *
+   * ```
+   * Date: Wed, 27 Aug 2014 08:58:49 GMT
+   * Content-Type: application/json
+   * Connection: keep-alive
+   * Transfer-Encoding: chunked
+   * ```
+   *
+   * @param {String} headers Headers needing to be parsed
+   * @returns {Object} Headers parsed into an object
+   */
+  function parseHeaders(headers) {
+      var parsed = {};
+      var key;
+      var val;
+      var i;
+      if (!headers) {
+          return parsed;
+      }
+      utils.forEach(headers.split('\n'), function parser(line) {
+          i = line.indexOf(':');
+          key = utils.trim(line.substr(0, i)).toLowerCase();
+          val = utils.trim(line.substr(i + 1));
+          if (key) {
+              if (parsed[key] && ignoreDuplicateOf.indexOf(key) >= 0) {
+                  return;
+              }
+              if (key === 'set-cookie') {
+                  parsed[key] = (parsed[key] ? parsed[key] : []).concat([val]);
+              }
+              else {
+                  parsed[key] = parsed[key] ? parsed[key] + ', ' + val : val;
+              }
+          }
+      });
+      return parsed;
+  }
+
+  /**
+   * Resolve or reject a Promise based on response status.
+   *
+   * @param {Function} resolve A function that resolves the promise.
+   * @param {Function} reject A function that rejects the promise.
+   * @param {object} response The response.
+   */
+  function settle(resolve, reject, response) {
+      var validateStatus = response.config.validateStatus;
+      if (!response.status || !validateStatus || validateStatus(response.status)) {
+          resolve(response);
+      }
+      else {
+          reject(new Error("Request failed with status code " + response.status));
+      }
+  }
+
   function xhrAdapter(config) {
       return new Promise(function dispatchXhrRequest(resolve, reject) {
-          const request = new XMLHttpRequest();
-          var fullPath = buildFullPath(config.baseURL, config.url);
-          console.log(fullPath, "==>最终的请求地址");
+          let request = new XMLHttpRequest();
+          const requestHeaders = config.headers;
+          const responseType = config.responseType;
+          let onCanceled;
+          let fullPath = buildFullPath(config.baseURL, config.url);
+          function done() {
+              if (config.cancelToken) {
+                  config.cancelToken.unsubscribe(onCanceled);
+              }
+              if (config.signal) {
+                  config.signal.removeEventListener("abort", onCanceled);
+              }
+          }
           request.open(config.method.toUpperCase(), buildURL(fullPath, config.params, config.paramsSerializer), true);
           request.timeout = config.timeout; // 设置过期时间
           let requestData = config.requestData;
+          function onloadend() {
+              if (!request) {
+                  return;
+              }
+              // Prepare the response
+              const responseHeaders = "getAllResponseHeaders" in request ? parseHeaders(request.getAllResponseHeaders()) : null;
+              const responseData = !responseType || responseType === "text" || responseType === "json"
+                  ? request.responseText
+                  : request.response;
+              const response = {
+                  data: responseData,
+                  status: request.status,
+                  statusText: request.statusText,
+                  headers: responseHeaders,
+                  config: config,
+                  request: request,
+              };
+              console.log(response);
+              settle(function _resolve(value) {
+                  resolve(value);
+                  done();
+              }, function _reject(err) {
+                  reject(err);
+                  done();
+              }, response);
+              // Clean up request
+              request = null;
+          }
+          if ("onloadend" in request) {
+              // Use onloadend if available
+              request.onloadend = onloadend;
+          }
+          else {
+              // Listen for ready state to emulate onloadend
+              request.onreadystatechange = function handleLoad() {
+                  if (!request || request.readyState !== 4) {
+                      return;
+                  }
+                  // The request errored out and we didn't get a response, this will be
+                  // handled by onerror instead
+                  // With one exception: request that using file: protocol, most browsers
+                  // will return status as 0 even though it's a successful request
+                  if (request.status === 0 &&
+                      !(request.responseURL && request.responseURL.indexOf("file:") === 0)) {
+                      return;
+                  }
+                  // readystate handler is calling before onerror or ontimeout handlers,
+                  // so we should call onloadend on the next 'tick'
+                  setTimeout(onloadend);
+              };
+          }
+          // 设置请求头
+          if ("setRequestHeader" in request) {
+              utils.forEach(requestHeaders, function setRequestHeader(val, key) {
+                  if (typeof requestData === "undefined" && key.toLowerCase() === "content-type") {
+                      // 如果请求的数据为undefined 删除content-type
+                      delete requestHeaders[key];
+                  }
+                  else {
+                      // 如果有 使用request的setRequestHeader 方法添加请求头
+                      request.setRequestHeader(key, val);
+                  }
+              });
+          }
+          // 如果请求中设置了cookie相关
+          if (!utils.isUndefined(config.withCredentials)) {
+              request.withCredentials = !!config.withCredentials;
+          }
+          // 添加响应类型
+          // if (responseType && responseType !== "json") {
+          //   request.responseType = config.responseType;
+          // }
+          if (config.cancelToken || config.signal) {
+              // Handle cancellation
+              // eslint-disable-next-line func-names
+              onCanceled = function (cancel) {
+                  if (!request) {
+                      return;
+                  }
+                  // reject(!cancel || (cancel && cancel.type) ? new Cancel("canceled") : cancel);
+                  request.abort();
+                  request = null;
+              };
+              config.cancelToken && config.cancelToken.subscribe(onCanceled);
+              if (config.signal) {
+                  config.signal.aborted ? onCanceled() : config.signal.addEventListener("abort", onCanceled);
+              }
+          }
           if (!requestData) {
               requestData = null;
           }

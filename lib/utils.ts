@@ -1,6 +1,6 @@
 const toString = Object.prototype.toString;
 function isUndefined(val) {
-  return typeof val === 'undefined';
+  return typeof val === "undefined";
 }
 /**
  * 确定一个值是不是对象
@@ -9,7 +9,7 @@ function isUndefined(val) {
  * @return {boolean} 是否为对象
  */
 function isPlainObject(val) {
-  if (toString.call(val) !== '[object Object]') {
+  if (toString.call(val) !== "[object Object]") {
     return false;
   }
   const prototype = Object.getPrototypeOf(val);
@@ -22,7 +22,7 @@ function isPlainObject(val) {
  * @returns {boolean} 返回是否为数组
  */
 function isArray(val) {
-  return toString.call(val) === '[object Array]';
+  return toString.call(val) === "[object Array]";
 }
 /**
  * @param {Object|Array} obj 需要迭代的数组或者对象
@@ -30,12 +30,12 @@ function isArray(val) {
  */
 function forEach(obj, fn) {
   // 如果obj没有传入值
-  if (obj === null || typeof obj === 'undefined') {
+  if (obj === null || typeof obj === "undefined") {
     return;
   }
 
   // 如果obj不是一个对象，转成数组
-  if (typeof obj !== 'object') {
+  if (typeof obj !== "object") {
     obj = [obj];
   }
   if (isArray(obj)) {
@@ -74,4 +74,14 @@ function merge(...arg: any[]) {
   }
   return result;
 }
-export default { forEach, merge, isPlainObject, isArray, isUndefined };
+
+/**
+ * Trim excess whitespace off the beginning and end of a string
+ *
+ * @param {String} str The String to trim
+ * @returns {String} The String freed of excess whitespace
+ */
+function trim(str) {
+  return str.trim ? str.trim() : str.replace(/^\s+|\s+$/g, "");
+}
+export default { forEach, merge, isPlainObject, isArray, isUndefined, trim };
